@@ -4,7 +4,7 @@ import { AddCircle as AddCircleIcon } from '@mui/icons-material';
 
 import { useAddJobMutation } from "../features/api/jobApi";
 
-const JobForm = () => {
+const JobForm = ({ showToast }) => {
   const [formData, setFormData] = useState({
     company: "",
     role: "",
@@ -25,7 +25,10 @@ const JobForm = () => {
     e.preventDefault();
 
     try {
-      await addJob(formData).unwrap();
+      const res = await addJob(formData).unwrap();
+      if (showToast) {
+        showToast(res?.message || res?.msg || "Job added to tracker successfully!", "success");
+      }
 
       setFormData({
         company: "",
@@ -34,7 +37,9 @@ const JobForm = () => {
         applied_date: "",
       });
     } catch (err) {
-      console.error(err);
+      if (showToast) {
+        showToast(err?.data?.message || err?.data?.msg || err?.message || "Failed to add job.", "error");
+      }
     }
   };
 

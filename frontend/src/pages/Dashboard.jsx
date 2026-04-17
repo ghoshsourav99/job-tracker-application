@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Container,
   Grid,
@@ -10,7 +10,14 @@ import {
   Button,
   Box,
   Chip,
-  Fade
+  Fade,
+  Snackbar,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions
 } from "@mui/material";
 import {
   Delete as DeleteIcon,
@@ -32,30 +39,61 @@ const Dashboard = () => {
   const [updateJob] = useUpdateJobMutation();
   const [deleteJob] = useDeleteJobMutation();
 
+  const [toast, setToast] = useState({ open: false, message: "", severity: "success" });
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [jobToDelete, setJobToDelete] = useState(null);
+
+  const showToast = (message, severity = "success") => {
+    setToast({ open: true, message, severity });
+  };
+
+  const handleCloseToast = (event, reason) => {
+    if (reason === 'clickaway') return;
+    setToast({ ...toast, open: false });
+  };
+
   const handleStatusChange = async (job, newStatus) => {
     try {
       const formattedDate = job.applied_date
         ? job.applied_date.split("T")[0]
         : null;
 
-      await updateJob({
+      const res = await updateJob({
         id: job.id,
         company: job.company,
         role: job.role,
         status: newStatus,
         applied_date: formattedDate,
       }).unwrap();
+      
+      showToast(res?.message || res?.msg || "Job status updated successfully", "success");
     } catch (err) {
-      console.error(err);
+      showToast(err?.data?.message || err?.data?.msg || err?.message || "Failed to update job", "error");
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDeleteClick = (id) => {
+    setJobToDelete(id);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!jobToDelete) return;
     try {
-      await deleteJob(id).unwrap();
+      const res = await deleteJob(jobToDelete).unwrap();
+      showToast(res?.message || res?.msg || "Job deleted successfully", "success");
+      setDeleteConfirmOpen(false);
+      setJobToDelete(null);
     } catch (err) {
-      console.error(err);
+      showToast(err?.data?.message || err?.data?.msg || err?.message || "Failed to delete job", "error");
+      setDeleteConfirmOpen(false);
+      setJobToDelete(null);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirmOpen(false);
+    setJobToDelete(null);
   };
 
   const getStatusColor = (status) => {
@@ -93,7 +131,7 @@ const Dashboard = () => {
         </Typography>
       </Box>
 
-      <JobForm />
+      <JobForm showToast={showToast} />
 
       <Typography variant="h4" sx={{ mt: 6, mb: 4, pl: 0, fontWeight: 700, color: "text.primary" }}>
         My Applications
@@ -154,7 +192,7 @@ const Dashboard = () => {
                     color="error"
                     fullWidth
                     startIcon={<DeleteIcon />}
-                    onClick={() => handleDelete(job.id)}
+                    onClick={() => handleDeleteClick(job.id)}
                   >
                     Delete
                   </Button>
@@ -172,6 +210,43 @@ const Dashboard = () => {
           </Grid>
         )}
       </Grid>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={handleDeleteCancel}
+        PaperProps={{
+          style: { borderRadius: 12, padding: "8px" }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: "text.primary" }}>Confirm Deletion</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: "text.secondary" }}>
+            Are you sure you want to delete this job application? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ pb: 2, px: 3 }}>
+          <Button onClick={handleDeleteCancel} sx={{ color: "text.secondary" }}>
+            Cancel
+          </Button>
+          <Button onClick={handleDeleteConfirm} variant="contained" color="error" disableElevation>
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Global Snackbar Toast */}
+      <Snackbar 
+        open={toast.open} 
+        autoHideDuration={4000} 
+        onClose={handleCloseToast}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert onClose={handleCloseToast} severity={toast.severity} sx={{ width: '100%', boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)" }}>
+          {toast.message}
+        </Alert>
+      </Snackbar>
+
     </Container>
   );
 };
